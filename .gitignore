@@ -1,0 +1,37 @@
+# Mac
+
+.DS_Store
+
+
+# LaTeX
+
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.backup
+
+
+# latexmk
+
+*.fdb_latexmk
+*.fls
+*.jnt
+
+# BibTeX
+
+*.bbl
+*.blg
+
+# Matlab
+*.asv
+
+#other
+.dropbox
+desktop.ini
+
+# jupyter, python
+.ipynb_checkpoints
+
+#specific to this project
