@@ -70,7 +70,7 @@ class WT(AbstractOperator):
         pass
         
 def pltPic(X):
-    plt.figure(1)
+    plt.figure(figsize=(9,12))
     plt.imshow(X,interpolation='nearest', cmap=plt.cm.gray)
     plt.show()
 
