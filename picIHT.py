@@ -10,6 +10,24 @@ import scipy.fftpack as spfft
 from abc import abstractmethod
 import pywt
 
+try: 
+    from itertools import accumulate 
+except:
+    import operator
+    def accumulate(iterable, func=operator.add):
+        'Return running totals'
+        # accumulate([1,2,3,4,5]) --> 1 3 6 10 15
+        # accumulate([1,2,3,4,5], operator.mul) --> 1 2 6 24 120
+        it = iter(iterable)
+        try:
+            total = next(it)
+        except StopIteration:
+            return
+        yield total
+        for element in it:
+            total = func(total, element)
+            yield total
+
 
 
 class AbstractOperator(object):
@@ -42,32 +60,58 @@ class DCT(AbstractOperator):
     
 class WT(AbstractOperator):
     '''wavelet transform... under construction'''
-    def __init__(self, shape, wavelet = 'db5', level = 6):
+    def __init__(self, shape, wavelet = 'db6', level = 5, amplify = [1]):
         self.shape = shape
         self.wavelet = wavelet
         self.level = level
+        self.cMat_shapes = [] 
+        self.amplify = amplify + (level-len(amplify)+1)*[1]
     
-    def apply(self, image):
-        coeffs = pywt.wavedec2(imArray, wavelet=wavelet, level=level)
-        #to list of np.arrays
-        C = [coeffs[0]]
-        for c in coeffs[1:]:
-            C=C+list(c)
-        self.wavelet_shapes = map(np.shape,C)
-        #vectorize elements in C
-        #...
-        pass
+    def __call__(self, image):
+        coeffs = pywt.wavedec2(image, wavelet=self.wavelet, level=self.level)
+        # format: [cAn, (cHn, cVn, cDn), ...,(cH1, cV1, cD1)] , n=level
 
+        #to list of np.arrays
+        #multiply with self.amplify[0] to have them more strongly weighted in compressions
+        #tbd: implement others
+        cMat_list = [self.amplify[0]*coeffs[0]]
+        for c in coeffs[1:]:
+            cMat_list = cMat_list + list(c)
+        #memorize all shapes for inv
+        self.cMat_shapes = map(np.shape,cMat_list)
         
-    def inv(self,Timage):
-        pywt.waverec2( Coeff, wavelet);
-        #...
+        #array vectorization
+        vect = lambda array: np.array(array).reshape(-1)
+        
+        #store coeffcient matrices as vectors in list
+        cVec_list = map(vect,cMat_list)
+
+        return np.concatenate(cVec_list)
+    
+    def inv(self,wavelet_vector):
+        '''Inverse WT
+            cVec_list: vector containing all wavelet coefficients as vectrized in __call__'''
+        
+        #check if shapes of the coefficient matrices are known
+        if self.cMat_shapes == []:
+            print("Call WT first to obtain shapes of coefficient matrices")
+            return None
+        
+        cVec_shapes = map(np.prod,self.cMat_shapes)
+        
+        split_indices = list(accumulate(cVec_shapes))
+        
+        cVec_list = np.split(wavelet_vector,split_indices)
+
         #back to level format
-        Coeff=[C[0]]
-        for j in xrange(level):
-            Coeff = Coeff+[tuple(C[3*j+1:3*(j+1)+1])]
-        #...
-        pass
+        coeffs=[ np.reshape(cVec_list[0]/self.amplify[0],self.cMat_shapes[0]) ]
+        for j in xrange(self.level):
+            triple = cVec_list[3*j+1:3*(j+1)+1]
+            triple = [np.reshape( triple[i], self.cMat_shapes[1 +3*j +i] ) 
+                     for i in xrange(3) ]
+            coeffs = coeffs + [tuple(triple)]
+
+        return pywt.waverec2( coeffs, wavelet=self.wavelet )
         
 def pltPic(X):
     plt.figure(figsize=(9,12))
