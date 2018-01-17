@@ -127,8 +127,8 @@ class WT(AbstractOperator):
 
         return pywt.waverec2( coeffs, wavelet=self.wavelet )
         
-def pltPic(X):
-    plt.figure(figsize=(9,12))
+def pltPic(X, size = (9,12) ):
+    plt.figure(figsize=size)
     plt.imshow(X,interpolation='nearest', cmap=plt.cm.gray)
     plt.show()
 
@@ -167,7 +167,8 @@ def compress(T, TO, image):
     x = TO(x)
     Cimage = T.inv(x)
     # print error
-    print("Relative error: {}".format( la.norm(Cimage-image,'fro')/la.norm(image,'fro') ))
+    rel_error = la.norm(Cimage-image,'fro')/la.norm(image,'fro')
+    print("Relative error: {}".format( rel_error ))
     return Cimage
 
 def getRandMask(N,m):
@@ -201,7 +202,7 @@ def update(T, thOp, mask, Xsub, X, mu):
     return ( T.inv(TXnew), norm_grad, support )
 
 
-def estimate(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None):
+def estimate(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None, Xorig = None):
     '''IHT-type estimate
     
     :param T: transfrom on pictures, e.g., DCT
@@ -210,14 +211,20 @@ def estimate(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None):
     :param X0: original picture to output the relative error'''
     #learning rate
     mu = stepsize #/np.sqrt(np.sum(mask))
-    X = Xsub
+    if X0 is None:
+        X = Xsub
+    else:
+        X = X0
+    last_support = T(X)==0
+            
+    # for checking divergence later
     norm0 = la.norm(Xsub,'fro')
     
-    if isinstance(X0,np.ndarray):
-        print("Relative error (support change): {:3.2f}".format( la.norm(X-X0,'fro')/la.norm(X0,'fro') ), end = ', ')
+    if isinstance(Xorig,np.ndarray):
+        print("Relative error (support change): {:3.3f}".format( la.norm(X-Xorig,'fro')/la.norm(Xorig,'fro') ), end = ', ')
     else:
         print("Support change: ")
-        
+            
     for j in range(n_steps):
         #update
         X, norm_grad, support = update(T, thOp, mask, Xsub, X, mu)
@@ -226,19 +233,19 @@ def estimate(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None):
         X = proj2range(X)
         #print output
         if j % 10 == 0:
-            if j>=1:
-                support_diff = np.sum( support == last_support )
-                print(' ({})'.format(support_diff),end ='')
-            elif isinstance(X0,np.ndarray):
-                print('(-)', end='')
+            #output support diff size
+            support_diff = np.sum( support == last_support )
+            print(' ({})'.format(len( support)-support_diff ),end ='')
             last_support = support
-            if isinstance(X0,np.ndarray):
-                rel_error = la.norm(X-X0,'fro')/la.norm(X0,'fro')
+            # print error if original picture is provided
+            if isinstance(Xorig,np.ndarray):
+                rel_error = la.norm(X-Xorig,'fro')/la.norm(Xorig,'fro')
                 if rel_error>10: break
-                print(", {:3.2f}".format( rel_error ), end = '')            
+                print(", {:3.3f}".format( rel_error ), end = '')            
             #interrupt if diverging
-            elif la.norm(X,'fro')> norm0*np.prod(T.shape)/np.sqrt(s):
+            elif la.norm(X,'fro')> 10*norm0*np.sqrt( np.prod(T.shape)/len(mask) ):
                 break    
+    print(' ')
     return X
 
 def proj2range(X):
@@ -256,5 +263,6 @@ def rand_ux(N,s):
 def randomPic(T,s):
     '''generates a random picture, s-sparse in T-space'''
     shape = T.shape
+    _ = T(np.zeros(shape))
     n = np.prod(shape)
     return T.inv( rand_ux(n,s).reshape(shape) )
