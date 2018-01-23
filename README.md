@@ -1,8 +1,12 @@
-#pit   ---  Pictures: Iterative Thresholding algorithms
+# pit   ---  Pictures: Iterative Thresholding algorithms
 
 ## A compressed sensing based image recovery demonstration 
 
-Simple and fast implementation of the *iterative hard and soft threosholding algorithms* (IHT and ISTA) for image recovery. It provides:
+*Author:* [Martin Kliesch](http://www.mkliesch.eu/)
+
+
+
+A simple and fast implementation of the *iterative hard and soft threosholding algorithms* (IHT and ISTA) for image recovery. It provides:
 
 * Reconstructions of images from few of their pixels (masked images)
   (see the Jupyter notebook demoIHT.ipynb for a working example)
@@ -47,6 +51,12 @@ For certain transformations *T* this algorithm essentially solves the problem:
     subject to   norm( X(mask) - Xsub, Frobenius) <= eta
 
 In order to rigorously guarantee this procedure to work *T* needs to satisfy certain properties. If *X* is sparse and there are enough pixels in *Xsub* (depending on the sparsity of *X*) then the minimum is attained for *Xrec* that is *eta*-close to *X* in Frobenius norm. 
+
+### Acknowledgment 
+I thank Stephan Wäldchen for discussions. 
+This project has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Skłodowska-Curie grant agreement No. 665778. 
+
+<img src="./pics/ncn-logo.png" height="30" /> &nbsp; <img src="./pics/eu-logo.jpg" height="30" />
 
 ### References
 * S. Foucart and H. Rauhut, *A mathematical introduction to compressive sensing* (Birkhäuser, 2013)
