@@ -1,6 +1,6 @@
 ''' Picture Iterative Thresholding algorithms
 	
-	Copyright (C) 2016  Martin Kliesch, info@mkliesch.eu
+	Copyright (C) 2017  Martin Kliesch, info@mkliesch.eu
 
 	https://github.com/MartKl/CS_image_recovery_demo
 
@@ -162,7 +162,7 @@ class hardTO(object):
             takes vector x, returns hard thresholded vector'''
     def __init__(self,sparsity):
         '''s: sparsity (integer number)'''
-        self.s = sparsity
+        self.s = int(sparsity)
         
     def __call__(self,x):
         x[cL(self.s,x)] = 0
@@ -188,7 +188,7 @@ def compress(T, TO, image):
     Cimage = T.inv(x)
     # print error
     rel_error = la.norm(Cimage-image,'fro')/la.norm(image,'fro')
-    print("Relative error: {}".format( rel_error ))
+    print("Relative compression error: {}".format( rel_error ))
     return Cimage
 
 def getRandMask(N,m):

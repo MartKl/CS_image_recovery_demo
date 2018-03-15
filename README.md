@@ -54,7 +54,7 @@ In order to rigorously guarantee this procedure to work *T* needs to satisfy cer
 
 ### Acknowledgment 
 I thank Stephan Wäldchen for discussions. 
-This project has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Skłodowska-Curie grant agreement No. 665778. 
+This project has been funded by the National Science Centre, Poland (Polonez 2015/19/P/ST2/03001), i.e., This project has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Skłodowska-Curie grant agreement No. 665778. 
 
 <img src="./pics/ncn-logo.png" height="30" /> &nbsp; <img src="./pics/eu-logo.jpg" height="30" />
 
