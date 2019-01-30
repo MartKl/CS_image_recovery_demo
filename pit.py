@@ -80,8 +80,10 @@ class DCT(AbstractOperator):
         return spfft.idct(spfft.idct(Timage, norm='ortho', axis=0), norm='ortho', axis=1)
     
 class WT(AbstractOperator):
-    '''wavelet transform... under construction'''
-    def __init__(self, shape, wavelet = 'db6', level = 5, amplify = None):
+    '''wavelet transform: 
+       call input: matrix
+       inv input: vector of length fitting WT.shape'''
+    def __init__(self, shape, wavelet = 'db6', level = 3, amplify = None):
         self.shape = shape
         self.wavelet = wavelet
         self.level = level
@@ -146,6 +148,27 @@ class WT(AbstractOperator):
             coeffs = coeffs + [tuple(triple)]
 
         return pywt.waverec2( coeffs, wavelet=self.wavelet )
+    
+    def rand(self):
+        '''outpus a random wavelet in picture domain'''
+        Tz = self.__call__(np.zeros(shape)) # to initialize self.cMat_shapes
+       
+        cVec_shapes = list(map(np.prod,self.cMat_shapes))
+        split_indices = list(accumulate(cVec_shapes))
+        cVec_list = np.split(Tz,split_indices)
+        
+        #back to level format
+        coeffs=[ np.reshape(cVec_list[0],self.cMat_shapes[0]) ]
+        for j in range(self.level):
+            triple = cVec_list[3*j+1:3*(j+1)+1]
+            triple = [np.reshape( triple[i], self.cMat_shapes[1 +3*j +i] ) 
+                     for i in range(3)]
+            coeffs = coeffs + [tuple(triple)]
+        
+        return pywt.waverec2( coeffs, wavelet=self.wavelet )
+    
+#end class(WT)
+
         
 def pltPic(X, size = (9,12) ):
     plt.figure(figsize=size)
@@ -221,8 +244,7 @@ def update(T, thOp, mask, Xsub, X, mu):
     
     return ( T.inv(TXnew), norm_grad, support )
 
-
-def estimate(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None, Xorig = None):
+def IHT(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None, Xorig = None):
     '''IHT-type estimate
     
     :param T: transfrom on pictures, e.g., DCT
@@ -268,6 +290,84 @@ def estimate(T, thOp, mask, Xsub, stepsize = 1, n_steps = 100, X0=None, Xorig = 
     print(' ')
     return X
 
+def proj(T, thOp, mask, Xsub, X):
+    '''IHT-type update, returns updated matrix Xnew and T-support of Xnew
+    T: transform
+    TO: thresholding operator
+    mask: indices with unknown pixels
+    Xsub: image matrix with Xsub[mask] arbitrary
+    mu: step size'''
+    
+    Xm = np.zeros(T.shape)
+    Xm.flat[mask] = X.flat[mask]
+    
+    #calc gradient of squared L2-norm
+    grad = 2*(Xm-Xsub)
+    norm_grad = la.norm(grad.flat)
+    
+    #gradient step, transform
+    TXnew = T( X-grad )
+          
+    #threshold
+    TXnew = thOp(TXnew)
+    
+    #calculate support
+    support = TXnew==0
+    
+    return ( T.inv(TXnew), norm_grad, support )
+
+
+def FISTA(T, thOp, mask, Xsub, stepsize = .8, n_steps = 100, X0=None, Xorig = None):
+    '''FISTA-type estimate
+    
+    :param T: transfrom on pictures, e.g., DCT
+    :param s: expected sparsity
+    :param mask: np.array of indices of Xsub.flat, i.e., Xsub[mask]==0
+    :param X0: original picture to output the relative error'''
+    if X0 is None:
+        X = Xsub
+    else:
+        X = X0
+    last_support = T(X)==0
+            
+    # for checking divergence later
+    norm0 = la.norm(Xsub,'fro')
+    
+    if isinstance(Xorig,np.ndarray):
+        print("Relative error (support change): {:3.3f}".format( la.norm(X-Xorig,'fro')/la.norm(Xorig,'fro') ), end = ', ')
+    else:
+        print("Support change: ")
+
+    #initialize
+    t0 = stepsize/2 #/np.sqrt(np.sum(mask))
+    Y = X0
+    for j in range(1,n_steps):
+        #calck projection
+        X1, norm_grad, support = proj(T, thOp, mask, Xsub, Y)
+        #set negative values to zero
+        X1 = proj2range(X1)
+        t1 = (1+np.sqrt( 1+4*t0**2 ))/2
+        Y = X1 + ((t0-1)/t1)*(X1-X0)
+        #save previous steps for next iteration
+        t0=t1
+        X0=X1
+        #print output
+        if j % 5 == 0:
+            #output support diff size
+            support_diff = np.sum( support == last_support )
+            print(' ({})'.format(len( support)-support_diff ),end ='')
+            last_support = support
+            # print error if original picture is provided
+            if isinstance(Xorig,np.ndarray):
+                rel_error = la.norm(X1-Xorig,'fro')/la.norm(Xorig,'fro')
+                if rel_error>10: break
+                print(", {:3.3f}".format( rel_error ), end = '')            
+            #interrupt if diverging
+            elif la.norm(X,'fro')> 10*norm0*np.sqrt( np.prod(T.shape)/len(mask) ):
+                break    
+    print(' ')
+    return X1
+
 def proj2range(X):
     '''Projects array elements to interval [0,255]'''
     X = pywt.threshold(X, 255, mode='less', substitute = 255)
@@ -283,6 +383,7 @@ def rand_ux(N,s):
 def randomPic(T,s):
     '''generates a random picture, s-sparse in T-space'''
     shape = T.shape
-    _ = T(np.zeros(shape))
-    n = np.prod(shape)
-    return T.inv( rand_ux(n,s).reshape(shape) )
+    rX = np.random.random(shape)
+    TX = T(rX)
+    TX = pywt.threshold(TX, TX[TX.argsort()[-s]], mode='hard')
+    return T.inv( TX )
