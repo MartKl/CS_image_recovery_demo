@@ -72,7 +72,7 @@ class DCT(AbstractOperator):
         self.shape = shape
     
     def __call__(self, image):
-        Timage = spfft.dct(spfft.dct(image, norm='ortho', axis=0, overwrite_x=True), norm='ortho', axis=1, overwrite_x=True)
+        Timage = spfft.dct(spfft.dct(image, norm='ortho', axis=0), norm='ortho', axis=1)
         return Timage.reshape(-1)
     
     def inv(self, Timage):
@@ -169,7 +169,10 @@ class WT(AbstractOperator):
     
 #end class(WT)
 
-        
+def rgb2gray(rgb):
+    '''Convert from rgb to grayscale'''
+    return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
+
 def pltPic(X, size = (9,12) ):
     plt.figure(figsize=size)
     plt.imshow(X,interpolation='nearest', cmap=plt.cm.gray)
